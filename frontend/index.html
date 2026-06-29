@@ -1,0 +1,405 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Local CoinDCX Futures transaction reporting and performance analytics."
+    />
+    <title>CoinDCX Futures Report Studio</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+    <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+    <script defer src="/static/app.js"></script>
+  </head>
+  <body>
+    <div class="ambient ambient-one" aria-hidden="true"></div>
+    <div class="ambient ambient-two" aria-hidden="true"></div>
+
+    <header class="topbar">
+      <a class="brand" href="#top" aria-label="CoinDCX Futures Report Studio home">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 38 38" role="img">
+            <path d="M10 11.5h18L19 28.2 10 11.5Z" />
+            <path d="m12.5 9 6.5-5 6.5 5h-13Z" class="mark-soft" />
+          </svg>
+        </span>
+        <span>
+          <strong>CoinDCX</strong>
+          <small>Futures Report Studio</small>
+        </span>
+      </a>
+
+      <div class="header-actions">
+        <div id="connectionPill" class="status-pill is-offline" aria-live="polite">
+          <span class="status-dot"></span>
+          <span id="connectionText">Not connected</span>
+        </div>
+        <button id="logoutButton" class="button button-ghost compact" type="button" disabled>
+          Clear session
+        </button>
+      </div>
+    </header>
+
+    <main id="top" class="app-shell">
+      <aside class="control-rail" aria-label="Report controls">
+        <section class="panel auth-panel">
+          <div class="panel-heading">
+            <div>
+              <span class="eyebrow">01 / Connection</span>
+              <h2>Secure API session</h2>
+            </div>
+            <span class="shield-badge" title="Secret stays in backend memory" aria-label="Memory-only credentials">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 3 5.5 5.5v5.8c0 4.2 2.6 7.9 6.5 9.7 3.9-1.8 6.5-5.5 6.5-9.7V5.5L12 3Z" />
+                <path d="m9.2 12 1.8 1.8 4-4" />
+              </svg>
+            </span>
+          </div>
+
+          <form id="authForm" novalidate>
+            <label class="field">
+              <span>API key</span>
+              <input id="apiKey" name="apiKey" type="password" autocomplete="off" spellcheck="false" placeholder="Enter API key" required />
+            </label>
+            <label class="field">
+              <span>API secret</span>
+              <span class="input-action-wrap">
+                <input id="apiSecret" name="apiSecret" type="password" autocomplete="new-password" spellcheck="false" placeholder="Enter API secret" required />
+                <button id="secretToggle" class="input-action" type="button" aria-label="Show API secret">Show</button>
+              </span>
+            </label>
+            <label class="field">
+              <span>Margin currency</span>
+              <span class="segmented" role="group" aria-label="Margin currency">
+                <input id="marginINR" type="radio" name="marginCurrency" value="INR" checked />
+                <label for="marginINR">INR</label>
+                <input id="marginUSDT" type="radio" name="marginCurrency" value="USDT" />
+                <label for="marginUSDT">USDT</label>
+              </span>
+            </label>
+            <button id="authButton" class="button button-primary full" type="submit">
+              <span class="button-label">Test connection</span>
+              <span class="spinner" aria-hidden="true"></span>
+            </button>
+          </form>
+
+          <p id="authMessage" class="microcopy" aria-live="polite">
+            Your secret is never persisted to disk or browser storage.
+          </p>
+        </section>
+
+        <section class="panel filter-panel">
+          <div class="panel-heading">
+            <div>
+              <span class="eyebrow">02 / Scope</span>
+              <h2>Global filters</h2>
+            </div>
+            <button id="resetFilters" class="text-button" type="button">Reset</button>
+          </div>
+
+          <div class="quick-actions">
+            <button id="last7Days" class="chip" type="button">Last 7 days</button>
+            <button id="todayIST" class="chip" type="button">Today IST</button>
+          </div>
+
+          <div class="field-grid">
+            <label class="field span-2">
+              <span>From IST</span>
+              <input id="fromIST" type="text" inputmode="numeric" placeholder="21/06/26 09:15:00" maxlength="17" />
+            </label>
+            <label class="field span-2">
+              <span>To IST</span>
+              <input id="toIST" type="text" inputmode="numeric" placeholder="26/06/26 23:59:59" maxlength="17" />
+            </label>
+            <label class="field">
+              <span>Initial capital</span>
+              <input id="initialCapital" type="number" min="0.01" step="0.01" value="5000" />
+            </label>
+            <label class="field">
+              <span>Page size</span>
+              <input id="pageSize" type="number" min="1" max="1000" value="100" />
+            </label>
+            <label class="field span-2">
+              <span>Max pages <em>optional</em></span>
+              <input id="maxPages" type="number" min="1" placeholder="No limit" />
+            </label>
+          </div>
+
+          <div class="toggle-stack">
+            <label class="toggle-row">
+              <span>
+                <strong>Include zero amounts</strong>
+                <small>Keep neutral transaction rows</small>
+              </span>
+              <input id="includeZero" type="checkbox" checked />
+              <span class="toggle-ui" aria-hidden="true"></span>
+            </label>
+            <label class="toggle-row">
+              <span>
+                <strong>Exclude liquidations</strong>
+                <small>Stage equals liquidate</small>
+              </span>
+              <input id="excludeLiquidate" type="checkbox" checked />
+              <span class="toggle-ui" aria-hidden="true"></span>
+            </label>
+            <label class="toggle-row">
+              <span>
+                <strong>Force exclude XAU</strong>
+                <small>Remove any pair containing XAU</small>
+              </span>
+              <input id="excludeXAU" type="checkbox" checked />
+              <span class="toggle-ui" aria-hidden="true"></span>
+            </label>
+          </div>
+
+          <label class="field">
+            <span>Excluded position IDs</span>
+            <textarea id="excludedPositionIds" rows="3" spellcheck="false">be09f054-356b-11f1-a6e6-cf5910827b69</textarea>
+          </label>
+        </section>
+
+        <section class="panel recent-panel">
+          <div class="panel-heading">
+            <div>
+              <span class="eyebrow">Session</span>
+              <h2>Recent reports</h2>
+            </div>
+          </div>
+          <div id="recentReports" class="recent-list">
+            <p class="empty-copy">Reports created in this session will appear here.</p>
+          </div>
+        </section>
+      </aside>
+
+      <div class="workspace">
+        <section class="hero panel" aria-labelledby="heroTitle">
+          <div>
+            <span class="eyebrow accent">Read-only futures intelligence</span>
+            <h1 id="heroTitle">Turn raw transaction history into a decisive trading review.</h1>
+            <p>
+              Filter CoinDCX Futures activity in IST, audit fees and drawdowns, compare tokens,
+              and export clean analyst-ready files from one local workspace.
+            </p>
+          </div>
+          <div class="hero-stat" aria-label="Security posture">
+            <span class="orbital-ring"></span>
+            <span class="hero-stat-value">0</span>
+            <span class="hero-stat-label">trading endpoints</span>
+            <small>Reporting access only</small>
+          </div>
+        </section>
+
+        <section class="panel report-builder" aria-labelledby="reportBuilderTitle">
+          <div class="section-heading">
+            <div>
+              <span class="eyebrow">03 / Build</span>
+              <h2 id="reportBuilderTitle">Choose report mode</h2>
+            </div>
+            <span id="sessionHint" class="section-hint">Connect your API session to generate reports.</span>
+          </div>
+
+          <div class="tabs" role="tablist" aria-label="Report modes">
+            <button class="tab is-active" type="button" role="tab" aria-selected="true" aria-controls="multiPanel" data-tab="multiPanel">
+              Multi token
+            </button>
+            <button class="tab" type="button" role="tab" aria-selected="false" aria-controls="singlePanel" data-tab="singlePanel">
+              Single token
+            </button>
+            <button class="tab" type="button" role="tab" aria-selected="false" aria-controls="dailyPanel" data-tab="dailyPanel">
+              Daily conversion
+            </button>
+          </div>
+
+          <div id="multiPanel" class="tab-panel is-active" role="tabpanel">
+            <div class="builder-grid">
+              <label class="field">
+                <span>Included futures pairs</span>
+                <textarea id="multiTokens" rows="5" spellcheck="false" placeholder="B-ETH_USDT, B-SOL_USDT, B-XRP_USDT"></textarea>
+                <small>Comma, line break, or space separated. Exact pair matching.</small>
+              </label>
+              <label class="field">
+                <span>Excluded futures pairs</span>
+                <textarea id="excludeTokens" rows="5" spellcheck="false" placeholder="B-XAU_USDT"></textarea>
+                <small>Applied after the include list.</small>
+              </label>
+            </div>
+            <div class="builder-actions">
+              <button id="sampleTokens" class="button button-secondary" type="button">Use sample tokens</button>
+              <button id="generateMulti" class="button button-primary" type="button" disabled>
+                <span class="button-label">Generate multi-token report</span>
+                <span class="spinner" aria-hidden="true"></span>
+              </button>
+            </div>
+          </div>
+
+          <div id="singlePanel" class="tab-panel" role="tabpanel" hidden>
+            <label class="field single-token-field">
+              <span>Exact futures pair</span>
+              <input id="singleToken" type="text" spellcheck="false" placeholder="B-SOL_USDT" />
+              <small>Pair names are normalized to uppercase.</small>
+            </label>
+            <div class="builder-actions align-end">
+              <button id="generateSingle" class="button button-primary" type="button" disabled>
+                <span class="button-label">Generate single-token report</span>
+                <span class="spinner" aria-hidden="true"></span>
+              </button>
+            </div>
+          </div>
+
+          <div id="dailyPanel" class="tab-panel" role="tabpanel" hidden>
+            <div class="builder-grid daily-grid">
+              <label class="field">
+                <span>Source report ID</span>
+                <input id="dailyReportId" type="text" spellcheck="false" placeholder="Generated report ID" />
+                <small>Latest generated report is selected automatically.</small>
+              </label>
+              <label class="field">
+                <span>Initial capital override</span>
+                <input id="dailyInitialCapital" type="number" min="0.01" step="0.01" value="20000" />
+              </label>
+              <label class="field">
+                <span>Trade count mode</span>
+                <select id="tradeCountMode">
+                  <option value="transaction_pairs">Transaction pairs</option>
+                  <option value="transaction_rows">Transaction rows</option>
+                  <option value="position_id">Unique position ID</option>
+                </select>
+              </label>
+              <label class="toggle-row boxed-toggle">
+                <span>
+                  <strong>Zero/zero funding heuristic</strong>
+                  <small>Amount = 0 and fee = 0</small>
+                </span>
+                <input id="fundingHeuristic" type="checkbox" checked />
+                <span class="toggle-ui" aria-hidden="true"></span>
+              </label>
+            </div>
+            <div class="builder-actions align-end">
+              <button id="generateDaily" class="button button-primary" type="button" disabled>
+                <span class="button-label">Convert to daily report</span>
+                <span class="spinner" aria-hidden="true"></span>
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <section id="progressPanel" class="panel progress-panel" aria-live="polite">
+          <div class="progress-topline">
+            <div>
+              <span class="eyebrow">Pipeline status</span>
+              <strong id="progressTitle">Ready when you are</strong>
+            </div>
+            <span id="progressPercent" class="mono">0%</span>
+          </div>
+          <div class="progress-track" aria-hidden="true">
+            <span id="progressBar"></span>
+          </div>
+          <ol id="logList" class="log-list">
+            <li><span class="log-time">--:--:--</span> Waiting for a report request.</li>
+          </ol>
+        </section>
+
+        <section id="dashboard" class="dashboard" aria-labelledby="dashboardTitle" hidden>
+          <div class="dashboard-heading">
+            <div>
+              <span class="eyebrow accent">Performance snapshot</span>
+              <h2 id="dashboardTitle">Report analytics</h2>
+              <p id="reportMeta" class="report-meta mono"></p>
+            </div>
+            <button id="copySummary" class="button button-secondary compact" type="button">Copy summary JSON</button>
+          </div>
+
+          <div id="kpiGrid" class="kpi-grid sticky-kpis">
+            <article class="kpi-card" data-kpi="net_pnl">
+              <span>Net PnL</span><strong id="kpiNet">--</strong><small>after fees</small>
+            </article>
+            <article class="kpi-card" data-kpi="gross_pnl">
+              <span>Gross PnL</span><strong id="kpiGross">--</strong><small>transaction sum</small>
+            </article>
+            <article class="kpi-card" data-kpi="total_fees">
+              <span>Fees</span><strong id="kpiFees">--</strong><small>absolute cost</small>
+            </article>
+            <article class="kpi-card" data-kpi="roi_pct">
+              <span>ROI</span><strong id="kpiROI">--</strong><small>on initial capital</small>
+            </article>
+            <article class="kpi-card" data-kpi="win_rate">
+              <span>Win rate</span><strong id="kpiWinRate">--</strong><small>non-zero rows</small>
+            </article>
+            <article class="kpi-card" data-kpi="total_estimated_trades">
+              <span>Trades</span><strong id="kpiTrades">--</strong><small>estimated</small>
+            </article>
+            <article class="kpi-card" data-kpi="max_equity_drawdown_abs">
+              <span>Max drawdown</span><strong id="kpiDrawdown">--</strong><small>equity peak-to-trough</small>
+            </article>
+            <article class="kpi-card" data-kpi="annualized_return_sharpe">
+              <span>Sharpe</span><strong id="kpiSharpe">--</strong><small>365.25-day annualized</small>
+            </article>
+          </div>
+
+          <div class="charts-grid">
+            <article class="panel chart-card wide">
+              <div class="chart-heading"><div><span>Daily performance</span><h3>Net PnL</h3></div><span class="legend-dot green">IST days</span></div>
+              <div class="chart-wrap"><canvas id="dailyNetChart" aria-label="Daily Net PnL chart"></canvas></div>
+            </article>
+            <article class="panel chart-card wide">
+              <div class="chart-heading"><div><span>Compounded path</span><h3>Cumulative net</h3></div><span class="legend-dot cyan">Net curve</span></div>
+              <div class="chart-wrap"><canvas id="cumulativeChart" aria-label="Cumulative Net PnL chart"></canvas></div>
+            </article>
+            <article class="panel chart-card">
+              <div class="chart-heading"><div><span>Risk profile</span><h3>Equity drawdown</h3></div></div>
+              <div class="chart-wrap"><canvas id="drawdownChart" aria-label="Equity drawdown chart"></canvas></div>
+            </article>
+            <article class="panel chart-card">
+              <div class="chart-heading"><div><span>Attribution</span><h3>Token net PnL</h3></div></div>
+              <div class="chart-wrap"><canvas id="tokenChart" aria-label="Token Net PnL chart"></canvas></div>
+            </article>
+            <article class="panel chart-card">
+              <div class="chart-heading"><div><span>Outcome mix</span><h3>Win / loss</h3></div></div>
+              <div class="chart-wrap"><canvas id="winLossChart" aria-label="Win Loss distribution chart"></canvas></div>
+            </article>
+            <article class="panel chart-card">
+              <div class="chart-heading"><div><span>Cost monitor</span><h3>Fee trend</h3></div></div>
+              <div class="chart-wrap"><canvas id="feeChart" aria-label="Fee trend chart"></canvas></div>
+            </article>
+          </div>
+
+          <section class="panel export-panel" aria-labelledby="exportTitle">
+            <div class="section-heading">
+              <div><span class="eyebrow">Exports</span><h2 id="exportTitle">Download report files</h2></div>
+              <span class="section-hint">Full datasets, no preview truncation</span>
+            </div>
+            <div id="exportButtons" class="export-buttons"></div>
+          </section>
+
+          <section class="panel tables-panel" aria-labelledby="tablesTitle">
+            <div class="section-heading table-section-heading">
+              <div><span class="eyebrow">Audit trail</span><h2 id="tablesTitle">Report tables</h2></div>
+              <div class="table-tools">
+                <label class="search-field">
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4 4"/></svg>
+                  <input id="tableSearch" type="search" placeholder="Filter visible rows" />
+                </label>
+                <label class="preview-select">Show
+                  <select id="previewCount"><option>25</option><option selected>50</option><option>100</option><option>200</option></select>
+                </label>
+              </div>
+            </div>
+
+            <div class="table-tabs" role="tablist" aria-label="Report tables">
+              <button class="table-tab is-active" type="button" data-table="daywiseTableWrap">Daywise</button>
+              <button class="table-tab" type="button" data-table="tokenTableWrap">Token breakdown</button>
+              <button class="table-tab" type="button" data-table="transactionTableWrap">Transactions</button>
+            </div>
+
+            <div id="daywiseTableWrap" class="table-wrap is-active"><table id="daywiseTable"></table></div>
+            <div id="tokenTableWrap" class="table-wrap" hidden><table id="tokenTable"></table></div>
+            <div id="transactionTableWrap" class="table-wrap" hidden><table id="transactionTable"></table></div>
+          </section>
+        </section>
+      </div>
+    </main>
+
+    <div id="toastRegion" class="toast-region" aria-live="polite" aria-atomic="true"></div>
+  </body>
+</html>
